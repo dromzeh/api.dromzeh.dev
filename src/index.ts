@@ -1,77 +1,107 @@
-import { Hono } from 'hono'
-import yaml from 'js-yaml'
+import { Hono } from "hono";
+import yaml from "js-yaml";
 
 type Bindings = {
-  PRIMARY_BUCKET: R2Bucket;
-  // i dont believe RATE_LIMITER is typed yet considering it's a new feature
-  POST_VIEWS: KVNamespace,
-  RATE_LIMITER: any;
-}
+    PRIMARY_BUCKET: R2Bucket;
+    // i dont believe RATE_LIMITER is typed yet considering it's a new feature
+    POST_VIEWS: KVNamespace;
+    RATE_LIMITER: any;
+};
 
-const app = new Hono<{ Bindings: Bindings }>()
+const app = new Hono<{ Bindings: Bindings }>();
 
+app.use("*", async (c, next) => {
+    // yes, ratelimiting by user ip isn't really good practice, it's fine for my use case though
+    const userIp = c.req.header("cf-connecting-ip") || "";
 
-app.use('*', async (c, next) => {
-  // yes, ratelimiting by user ip isn't really good practice, it's fine for my use case though
-  const userIp = c.req.header('cf-connecting-ip') || ""
-  
-  const { success } = await c.env.RATE_LIMITER.limit({ key: userIp }) as { success: boolean }
+    const { success } = (await c.env.RATE_LIMITER.limit({ key: userIp })) as {
+        success: boolean;
+    };
 
-  if (!success) return c.json({ status: 'error', message: 'Rate limit exceeded' }, 429)
-  
-  return next() 
-})
+    if (!success)
+        return c.json({ status: "error", message: "Rate limit exceeded" }, 429);
 
+    return next();
+});
 
-app.get('/', (c) => {
-  return c.json({ status: 'ok' }, 200)
-})
+app.get("/", (c) => {
+    return c.json({ status: "ok" }, 200);
+});
 
+app.get("/posts", async (c) => {
+    const files = await c.env.PRIMARY_BUCKET.list({
+        prefix: "posts/",
+        delimiter: "/",
+    });
 
-app.get('/posts', async (c) => {
-  const files = await c.env.PRIMARY_BUCKET.list({ prefix: "posts/", delimiter: "/" })
+    if (!files.objects)
+        return c.json({ status: "error", message: "No posts found" }, 404);
 
-  if (!files.objects) return c.json({ status: 'error', message: 'No posts found' }, 404)
+    const posts = await Promise.all(
+        files.objects.map(async (file) => {
+            const post = await c.env.PRIMARY_BUCKET.get(file.key);
+            const contents = await post?.text();
+            const [yamlSect] = contents!.split("---\n").slice(1);
 
-  const posts = await Promise.all(files.objects.map(async (file) => {
-    const post = await c.env.PRIMARY_BUCKET.get(file.key)
-    const contents = await post?.text()
-    const [yamlSect] = contents!.split('---\n').slice(1)
+            const data = yaml.load(yamlSect) as any;
 
-    const data = yaml.load(yamlSect) as any
+            const views = (await c.env.POST_VIEWS.get(data.slug)) || "0";
 
-    const views = await c.env.POST_VIEWS.get(data.slug) || '0'
+            return {
+                title: data.title,
+                slug: data.slug,
+                date: data.date,
+                description: data.description,
+                views: null,
+            };
+        }),
+    );
 
-    return { title: data.title, slug: data.slug, date: data.date, description: data.description, views: null }
-  }))
+    return c.json({ posts }, 200);
+});
 
-  return c.json({ posts }, 200)
-})
+app.get("/posts/:slug", async (c) => {
+    const { slug } = c.req.param();
 
+    const files = await c.env.PRIMARY_BUCKET.list({
+        prefix: "posts/",
+        delimiter: "/",
+    });
 
-app.get('/posts/:slug', async (c) => {
-  const { slug } = c.req.param()
+    // slug != file key
 
-  const file = await c.env.PRIMARY_BUCKET.get("posts/test.mdx")
+    const posts = await Promise.all(
+        files.objects.map(async (file) => {
+            const post = await c.env.PRIMARY_BUCKET.get(file.key);
+            const contents = await post?.text();
+            const [yamlSect] = contents!.split("---\n").slice(1);
+            const data = yaml.load(yamlSect) as any;
 
-  if (!file) return c.json({ status: 'error', message: 'Post not found' }, 404)
+            if (data.slug === slug) {
+                let views = (await c.env.POST_VIEWS.get(slug)) || "0";
 
-  const contents = await file.text()
+                const viewsCount = parseInt(views) + 1;
 
-  const [yamlSect] = contents.split('---\n').slice(1)
-  const data = yaml.load(yamlSect) as any
+                await c.env.POST_VIEWS.put(slug, viewsCount.toString());
 
-  // file slug != file key
-  if (data.slug !== slug) return c.json({ status: 'error', message: 'Post not found' }, 404)
-  
-  let views = await c.env.POST_VIEWS.get(slug) || '0'
+                return {
+                    title: data.title,
+                    slug: data.slug,
+                    date: data.date,
+                    description: data.description,
+                    views: null,
+                    content: contents,
+                };
+            }
+        }),
+    );
 
-  const viewsCount = parseInt(views) + 1
+    const post = posts.filter(Boolean)[0];
 
-  await c.env.POST_VIEWS.put(slug, viewsCount.toString())
+    if (!post)
+        return c.json({ status: "error", message: "Post not found" }, 404);
 
-  return c.json({ title: data.title, slug: data.slug, date: data.date, description: data.description, views: null, content: contents }, 200)
-})
+    return c.json({ status: "ok", post: post }, 200);
+});
 
-
-export default app
+export default app;

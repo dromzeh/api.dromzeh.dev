@@ -1,15 +1,18 @@
 {
-  "scripts": {
-    "dev": "wrangler dev src/index.ts --remote",
-    "deploy": "wrangler deploy --minify src/index.ts"
-  },
-  "dependencies": {
-    "@types/js-yaml": "^4.0.9",
-    "hono": "^4.2.8",
-    "js-yaml": "^4.1.0"
-  },
-  "devDependencies": {
-    "@cloudflare/workers-types": "^4.20240403.0",
-    "wrangler": "^3.47.0"
-  }
+    "scripts": {
+        "dev": "wrangler dev src/index.ts --remote",
+        "deploy": "wrangler deploy --minify src/index.ts",
+        "prettier": "prettier --write .",
+        "prettier:check": "prettier --check ."
+    },
+    "dependencies": {
+        "@types/js-yaml": "^4.0.9",
+        "hono": "^4.2.8",
+        "js-yaml": "^4.1.0",
+        "prettier": "^3.2.5"
+    },
+    "devDependencies": {
+        "@cloudflare/workers-types": "^4.20240403.0",
+        "wrangler": "^3.47.0"
+    }
 }
