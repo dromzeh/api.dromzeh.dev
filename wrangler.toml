@@ -7,14 +7,21 @@ account_id = "ba4e8f7f9ffbc23dba6acd0d9bd3ef46"
 # [vars]
 # MY_VAR = "my-variable"
 
-# [[kv_namespaces]]
-# binding = "MY_KV_NAMESPACE"
-# id = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+[[kv_namespaces]]
+binding = "POST_VIEWS"
+id = "04bc5f247f614db98ae7a5e96eeeaf88"
+preview_id = "04bc5f247f614db98ae7a5e96eeeaf88"
+
+[[unsafe.bindings]]
+name = "RATE_LIMITER"
+type = "ratelimit"
+namespace_id = "1001"
+simple = { limit = 20, period = 60 }
 
 [[r2_buckets]]
-binding = "bucket"
-bucket_name = "cdn-dromzeh-dev"
-preview_bucket_name = "cdn-dromzeh-dev"
+binding = 'PRIMARY_BUCKET'
+bucket_name = 'cdn-dromzeh-dev'
+preview_bucket_name = 'cdn-dromzeh-dev'
 
 # [[d1_databases]]
 # binding = "DB"

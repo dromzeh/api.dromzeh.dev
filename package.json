@@ -1,10 +1,12 @@
 {
   "scripts": {
-    "dev": "wrangler dev src/index.ts",
+    "dev": "wrangler dev src/index.ts --remote",
     "deploy": "wrangler deploy --minify src/index.ts"
   },
   "dependencies": {
-    "hono": "^4.2.8"
+    "@types/js-yaml": "^4.0.9",
+    "hono": "^4.2.8",
+    "js-yaml": "^4.1.0"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20240403.0",

@@ -1,8 +1,5 @@
-```
-npm install
-npm run dev
-```
+# api.dromzeh.dev
 
-```
-npm run deploy
-```
+backend hono api for dromzeh.dev, deployed on cloudflare workers
+
+- handles fetching blog posts through R2 bucket, global ratelimiting with ip, cloudflare kv for view count
